@@ -4,7 +4,7 @@
 //! pinned in the local registration command and is never accepted from a web
 //! page, which prevents another site from selecting an upload destination.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use std::path::Path;
 use url::Url;
 
@@ -74,7 +74,8 @@ fn validate_pinned_server(url: &Url) -> Result<()> {
 
 #[cfg(windows)]
 mod platform {
-    use super::{bail, Context, Path, Result, Url};
+    use super::{bail, Path, Result, Url};
+    use anyhow::Context;
     use std::ffi::{OsStr, OsString};
     use std::fmt::Write as _;
     use std::process::{Command, Output};
@@ -235,10 +236,14 @@ mod platform {
         bail!("automatic URL-handler registration is currently available on Windows only")
     }
 
+    // Match the fallible Windows platform interface used by the public API.
+    #[allow(clippy::unnecessary_wraps)]
     pub(super) fn is_installed() -> Result<bool> {
         Ok(false)
     }
 
+    // Match the fallible Windows platform interface used by the public API.
+    #[allow(clippy::unnecessary_wraps)]
     pub(super) fn uninstall() -> Result<bool> {
         Ok(false)
     }
