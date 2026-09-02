@@ -36,13 +36,13 @@ Read [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), and
 Rust 1.87 or newer is required:
 
 ```console
-cargo install --locked --git https://github.com/VPAI-Grok/tokenmaxxing-connector --bin tokenmaxxing
+cargo install --locked --git https://github.com/VPAI-Grok/tokenmaxxing-connector --tag v0.1.0 --bin tokenmaxxing
 tokenmaxxing --help
 ```
 
-That command builds the source at the repository's current default branch. To
-inspect and pin the exact source first, clone the repository, check out the
-commit you trust, and install that checkout:
+That command builds the reviewed `v0.1.0` source snapshot. To inspect and pin a
+different exact revision, clone the repository, check out the commit you trust,
+and install that checkout:
 
 ```console
 git clone https://github.com/VPAI-Grok/tokenmaxxing-connector.git
