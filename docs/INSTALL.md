@@ -2,17 +2,18 @@
 
 ## Install the open technical preview from source
 
-Rust 1.87 or newer is required. Install the `tokenmaxxing` binary directly from
-the public repository with the committed lockfile:
+Rust 1.87 or newer is required. Install the reviewed `v0.1.0` source snapshot
+with its committed lockfile:
 
 ```console
-cargo install --locked --git https://github.com/VPAI-Grok/tokenmaxxing-connector --bin tokenmaxxing
+cargo install --locked --git https://github.com/VPAI-Grok/tokenmaxxing-connector --tag v0.1.0 --bin tokenmaxxing
 tokenmaxxing --help
 ```
 
-For reviewable, commit-pinned installation, clone the repository, check out the
-commit you trust, and run `cargo install --path . --locked --bin tokenmaxxing`
-from that checkout. Source-built technical-preview binaries are unsigned.
+For a different reviewable, commit-pinned installation, clone the repository,
+check out the commit you trust, and run
+`cargo install --path . --locked --bin tokenmaxxing` from that checkout.
+Source-built technical-preview binaries are unsigned.
 
 Connect from a terminal on Windows, macOS, or Linux:
 
