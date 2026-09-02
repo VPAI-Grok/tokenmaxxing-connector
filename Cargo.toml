@@ -1,0 +1,82 @@
+[package]
+name = "project-relay-connector"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"
+description = "Privacy-first Codex activity connector for Tokenmaxxing"
+license = "MIT"
+repository = "https://github.com/VPAI-Grok/tokenmaxxing-connector"
+readme = "README.md"
+keywords = ["codex", "activity", "privacy", "cli"]
+categories = ["command-line-utilities"]
+default-run = "tokenmaxxing"
+
+[[bin]]
+name = "tokenmaxxing"
+path = "src/main.rs"
+
+[[bin]]
+name = "relay"
+path = "src/main.rs"
+
+[[bin]]
+name = "fake-codex"
+path = "tests/fixtures/fake_codex.rs"
+required-features = ["test-fixtures"]
+
+[features]
+default = []
+test-fixtures = []
+
+[dependencies]
+anyhow = "1.0"
+argon2 = { version = "0.5", default-features = false, features = ["alloc"] }
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+directories = "6.0"
+ed25519-dalek = { version = "2.1", features = ["rand_core", "zeroize"] }
+keyring = { version = "3.6", features = ["apple-native", "windows-native", "sync-secret-service"] }
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+tokio = { version = "1.44", features = ["macros", "rt-multi-thread", "time"] }
+toml = "0.8"
+url = { version = "2.5", features = ["serde"] }
+uuid = { version = "1.16", features = ["v4", "serde"] }
+webbrowser = "1.0"
+which = "7.0"
+zeroize = { version = "1.8", features = ["derive"] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+regex = "1.11"
+tempfile = "3.19"
+wiremock = "=0.6.4"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = "z"
+panic = "abort"
+strip = "symbols"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+print_stderr = "allow"
+print_stdout = "allow"
+doc_markdown = "allow"
+missing_errors_doc = "allow"
+must_use_candidate = "allow"
+struct_field_names = "allow"

@@ -1,0 +1,252 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require approved native signing credentials
+        shell: bash
+        env:
+          RELAY_NATIVE_SIGNING_READY: ${{ vars.RELAY_NATIVE_SIGNING_READY }}
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELAY_NATIVE_SIGNING_READY" != "true" ]]; then
+            echo "::error::Public tag releases are disabled until the owner approves paid native signing and sets RELAY_NATIVE_SIGNING_READY=true."
+            exit 1
+          fi
+          required=(
+            WINDOWS_CERTIFICATE_BASE64
+            WINDOWS_CERTIFICATE_PASSWORD
+            MACOS_CERTIFICATE_BASE64
+            MACOS_CERTIFICATE_PASSWORD
+            MACOS_SIGNING_IDENTITY
+            APPLE_ID
+            APPLE_APP_SPECIFIC_PASSWORD
+            APPLE_TEAM_ID
+          )
+          missing=()
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::Native signing gate is enabled but required secrets are missing: ${missing[*]}"
+            exit 1
+          fi
+          echo "Native signing release gate is explicitly enabled and configured."
+
+  build:
+    needs: release-policy
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+            binary: tokenmaxxing.exe
+            archive_ext: zip
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            binary: tokenmaxxing
+            archive_ext: tar.gz
+          - os: macos-15
+            target: aarch64-apple-darwin
+            binary: tokenmaxxing
+            archive_ext: tar.gz
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            binary: tokenmaxxing
+            archive_ext: tar.gz
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary: tokenmaxxing
+            archive_ext: tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master, resolved 2026-08-31
+        with:
+          toolchain: 1.87.0
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ matrix.target }}
+      - run: cargo install cargo-cyclonedx --version 0.5.9 --locked
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - run: cargo cyclonedx --format json
+      - name: Sign and verify Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $binary = "target/${{ matrix.target }}/release/${{ matrix.binary }}"
+          $certificate = Join-Path $env:RUNNER_TEMP "relay-authenticode.pfx"
+          try {
+            [IO.File]::WriteAllBytes(
+              $certificate,
+              [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64)
+            )
+            $signTool = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -File |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1
+            if ($null -eq $signTool) {
+              throw "signtool.exe was not found on the GitHub runner"
+            }
+            & $signTool.FullName sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /d "Tokenmaxxing Connector" /f $certificate /p $env:WINDOWS_CERTIFICATE_PASSWORD $binary
+            if ($LASTEXITCODE -ne 0) {
+              throw "Authenticode signing failed"
+            }
+            & $signTool.FullName verify /pa /all $binary
+            if ($LASTEXITCODE -ne 0) {
+              throw "Authenticode verification failed"
+            }
+          }
+          finally {
+            Remove-Item -LiteralPath $certificate -Force -ErrorAction SilentlyContinue
+          }
+      - name: Import macOS signing identity
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          certificate="$RUNNER_TEMP/relay-signing.p12"
+          keychain="$RUNNER_TEMP/relay-signing.keychain-db"
+          keychain_password="$(openssl rand -hex 32)"
+          trap 'rm -f "$certificate"' EXIT
+          printf '%s' "$MACOS_CERTIFICATE_BASE64" | openssl base64 -d -A -out "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain"
+          echo "RELAY_MACOS_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+      - name: Sign, verify, and notarize macOS executable
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          binary="target/${{ matrix.target }}/release/${{ matrix.binary }}"
+          notarization_archive="$RUNNER_TEMP/relay-${{ matrix.target }}-notarization.zip"
+          notarization_result="$RUNNER_TEMP/relay-${{ matrix.target }}-notarization.json"
+          codesign --force --options runtime --timestamp --keychain "$RELAY_MACOS_KEYCHAIN" --sign "$MACOS_SIGNING_IDENTITY" "$binary"
+          codesign --verify --strict --verbose=2 "$binary"
+          ditto -c -k --keepParent "$binary" "$notarization_archive"
+          xcrun notarytool submit "$notarization_archive" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait \
+            --output-format json > "$notarization_result"
+          python3 - "$notarization_result" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              result = json.load(handle)
+          status = result.get("status")
+          print(f"Apple notarization status: {status}")
+          if status != "Accepted":
+              raise SystemExit("Apple did not accept the notarization submission")
+          PY
+      - name: Remove temporary macOS signing keychain
+        if: ${{ always() && runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          if [[ -n "${RELAY_MACOS_KEYCHAIN:-}" && -f "$RELAY_MACOS_KEYCHAIN" ]]; then
+            security delete-keychain "$RELAY_MACOS_KEYCHAIN"
+          fi
+      - name: Stage release files (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="dist/tokenmaxxing-${{ matrix.target }}"
+          archive="tokenmaxxing-${{ matrix.target }}.tar.gz"
+          mkdir -p "$bundle"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "$bundle/"
+          cp LICENSE PRIVACY.md SECURITY.md README.md docs/INSTALL.md docs/PROTOCOL.md "$bundle/"
+          cp project-relay-connector.cdx.json "$bundle/sbom.cdx.json"
+          (cd "$bundle" && shasum -a 256 "${{ matrix.binary }}" > "${{ matrix.binary }}.sha256")
+          tar -C "$bundle" -czf "dist/$archive" .
+          (cd dist && shasum -a 256 "$archive" > "$archive.sha256")
+      - name: Stage release files (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bundle = "dist/tokenmaxxing-${{ matrix.target }}"
+          $archiveName = "tokenmaxxing-${{ matrix.target }}.zip"
+          $archive = "dist/$archiveName"
+          New-Item -ItemType Directory -Force -Path $bundle | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" $bundle
+          Copy-Item LICENSE,PRIVACY.md,SECURITY.md,README.md,docs/INSTALL.md,docs/PROTOCOL.md $bundle
+          Copy-Item project-relay-connector.cdx.json "$bundle/sbom.cdx.json"
+          $binaryHash = (Get-FileHash "$bundle/${{ matrix.binary }}" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$binaryHash  ${{ matrix.binary }}" | Set-Content -NoNewline "$bundle/${{ matrix.binary }}.sha256"
+          Compress-Archive -Path "$bundle/*" -DestinationPath $archive
+          $archiveHash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$archiveHash  $archiveName" | Set-Content -NoNewline "$archive.sha256"
+      - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        with:
+          subject-path: dist/tokenmaxxing-${{ matrix.target }}.${{ matrix.archive_ext }}
+      - uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3.0.0
+        with:
+          subject-path: dist/tokenmaxxing-${{ matrix.target }}.${{ matrix.archive_ext }}
+          sbom-path: dist/tokenmaxxing-${{ matrix.target }}/sbom.cdx.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tokenmaxxing-${{ matrix.target }}
+          path: |
+            dist/tokenmaxxing-${{ matrix.target }}.${{ matrix.archive_ext }}
+            dist/tokenmaxxing-${{ matrix.target }}.${{ matrix.archive_ext }}.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          path: release
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release/**/*

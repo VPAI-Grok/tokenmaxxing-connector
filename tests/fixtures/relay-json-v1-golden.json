@@ -1,0 +1,42 @@
+{
+  "privateKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "publicKey": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg",
+  "receipt": {
+    "acceptedAt": "2026-08-31T16:00:01Z",
+    "quarantineStatus": "quarantined",
+    "reasonCodes": ["observed_at_skew"],
+    "receiptHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "receiptId": "f3163c42-732c-49f2-bf7f-6c4b194efb7b",
+    "sequence": 1,
+    "serverSignature": "0n8MFa6a_2F_ZO-RfzbsrpeMaKNHXuYILqL4VVLT7FXz4xL46P5lwhOrRouJA1BuUpHiewblGPMaC18TgoF4DQ",
+    "snapshotHash": "0045e1681726b3f5968a5345aff5dcc643d4a7abd4bb52392049c38adaafeeb9",
+    "trustTier": "synced"
+  },
+  "receiptSigningText": "{\"acceptedAt\":\"2026-08-31T16:00:01Z\",\"quarantineStatus\":\"quarantined\",\"reasonCodes\":[\"observed_at_skew\"],\"receiptHash\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"receiptId\":\"f3163c42-732c-49f2-bf7f-6c4b194efb7b\",\"sequence\":1,\"snapshotHash\":\"0045e1681726b3f5968a5345aff5dcc643d4a7abd4bb52392049c38adaafeeb9\",\"trustTier\":\"synced\"}",
+  "serverNonce": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+  "snapshot": {
+    "accountFingerprint": "v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "challengeId": "7413d0fb-56e0-49c1-b520-e263f39d4040",
+    "codexVersion": "codex-cli 1.2.3",
+    "connectorVersion": "0.1.0",
+    "consentVersion": 1,
+    "deviceId": "f19c7b47-0470-4410-bf9b-7f8a70d1f8fe",
+    "fingerprintVersion": 1,
+    "metrics": {
+      "currentStreakDays": 8,
+      "dailyUsageBuckets": [{ "startDate": "2026-08-30", "tokens": "12345" }],
+      "lifetimeTokens": "1234567",
+      "longestRunningTurnSec": "540",
+      "longestStreakDays": 14,
+      "peakDailyTokens": "45678"
+    },
+    "observedAt": "2026-08-31T16:00:00Z",
+    "previousReceiptHash": null,
+    "schemaVersion": 1,
+    "signature": "Xx-lSM9uTyK12g63yThiEQfe7dzEwKKg1XXkpU6IK2Wx0yQWLNl3YGZZVjq8tBzge_k-AEyMwuaAZX8QZNuPCA"
+  },
+  "snapshotCanonicalPayload": "{\"accountFingerprint\":\"v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"challengeId\":\"7413d0fb-56e0-49c1-b520-e263f39d4040\",\"codexVersion\":\"codex-cli 1.2.3\",\"connectorVersion\":\"0.1.0\",\"consentVersion\":1,\"deviceId\":\"f19c7b47-0470-4410-bf9b-7f8a70d1f8fe\",\"fingerprintVersion\":1,\"metrics\":{\"currentStreakDays\":8,\"dailyUsageBuckets\":[{\"startDate\":\"2026-08-30\",\"tokens\":\"12345\"}],\"lifetimeTokens\":\"1234567\",\"longestRunningTurnSec\":\"540\",\"longestStreakDays\":14,\"peakDailyTokens\":\"45678\"},\"observedAt\":\"2026-08-31T16:00:00Z\",\"previousReceiptHash\":null,\"schemaVersion\":1}",
+  "snapshotPayloadSha256": "0045e1681726b3f5968a5345aff5dcc643d4a7abd4bb52392049c38adaafeeb9",
+  "snapshotSigningText": "POST\n/api/v1/sync/snapshots\n7413d0fb-56e0-49c1-b520-e263f39d4040\nICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8\n0045e1681726b3f5968a5345aff5dcc643d4a7abd4bb52392049c38adaafeeb9",
+  "warning": "Fixture-only deterministic private key; never use for a real device"
+}

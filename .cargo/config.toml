@@ -1,0 +1,8 @@
+[build]
+incremental = false
+
+[net]
+retry = 3
+
+[resolver]
+incompatible-rust-versions = "fallback"
