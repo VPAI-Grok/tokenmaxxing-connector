@@ -343,11 +343,7 @@ fn launcher_command(cli: &Cli, paths: &AppPaths, command: &LauncherCommand) -> R
             let server_url = resolve_server_url(cli, paths)?;
             let executable = std::env::current_exe()
                 .context("resolve the absolute Tokenmaxxing executable path")?;
-            let config_root = cli
-                .config_root
-                .as_deref()
-                .map(absolute_path)
-                .transpose()?;
+            let config_root = cli.config_root.as_deref().map(absolute_path).transpose()?;
             launcher::install(&executable, &server_url, config_root.as_deref())?;
             emit(
                 cli.json,

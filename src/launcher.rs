@@ -33,11 +33,7 @@ pub fn parse_uri(uri: &Url) -> Result<LauncherAction> {
 }
 
 /// Register the current connector executable as the per-user URL handler.
-pub fn install(
-    executable: &Path,
-    server_url: &Url,
-    config_root: Option<&Path>,
-) -> Result<()> {
+pub fn install(executable: &Path, server_url: &Url, config_root: Option<&Path>) -> Result<()> {
     validate_pinned_server(server_url)?;
     if !executable.is_absolute() {
         bail!("launcher executable path must be absolute");
@@ -78,8 +74,9 @@ fn validate_pinned_server(url: &Url) -> Result<()> {
 
 #[cfg(windows)]
 mod platform {
-    use super::*;
+    use super::{bail, Context, Path, Result, Url};
     use std::ffi::{OsStr, OsString};
+    use std::fmt::Write as _;
     use std::process::{Command, Output};
 
     const PROTOCOL_KEY: &str = r"HKCU\Software\Classes\tokenmaxxing";
@@ -96,10 +93,7 @@ mod platform {
 
         reg_add_default(PROTOCOL_KEY, "URL:Tokenmaxxing Protocol")?;
         reg_add_named(PROTOCOL_KEY, "URL Protocol", "")?;
-        reg_add_default(
-            &format!(r"{PROTOCOL_KEY}\DefaultIcon"),
-            &icon,
-        )?;
+        reg_add_default(&format!(r"{PROTOCOL_KEY}\DefaultIcon"), &icon)?;
         // Write the open command last so partially completed registration is
         // never reported as an installed, callable handler.
         reg_add_default(COMMAND_KEY, &command)?;
@@ -154,7 +148,7 @@ mod platform {
         let mut command = format!("\"{executable}\" launch \"%1\" --server \"{server_url}\"");
         if let Some(root) = config_root {
             let root = path_text(root, "launcher config root")?;
-            command.push_str(&format!(" --config-root \"{root}\""));
+            write!(&mut command, " --config-root \"{root}\"")?;
         }
         Ok(command)
     }
@@ -216,7 +210,7 @@ mod platform {
 
     #[cfg(test)]
     mod tests {
-        use super::*;
+        use super::{registration_command, Path, Result, Url};
 
         #[test]
         fn handler_command_pins_server_and_forwards_only_the_uri() -> Result<()> {
@@ -235,7 +229,7 @@ mod platform {
 
 #[cfg(not(windows))]
 mod platform {
-    use super::*;
+    use super::{bail, Path, Result, Url};
 
     pub(super) fn install(_: &Path, _: &Url, _: Option<&Path>) -> Result<()> {
         bail!("automatic URL-handler registration is currently available on Windows only")
@@ -252,7 +246,7 @@ mod platform {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{install, parse_uri, LauncherAction, Result, Url};
 
     #[test]
     fn accepts_only_the_exact_connect_action() -> Result<()> {
